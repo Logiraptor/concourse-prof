@@ -63,9 +63,6 @@ func (p processor) processJob(pipeline, job string) error {
 		if err != nil {
 			return err
 		}
-		if len(builds) > 10 {
-			builds = builds[:10]
-		}
 
 		name := pipeline + "/" + job
 		bar := p.progress.AddBar(int64(len(builds)),
