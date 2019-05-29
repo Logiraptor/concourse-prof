@@ -1,4 +1,4 @@
-package main
+package events
 
 type InitializeTaskEvent struct {
 	Time   int64

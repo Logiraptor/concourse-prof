@@ -1,4 +1,17 @@
-package main
+package events
+
+import "encoding/json"
+
+type BaseEvent struct {
+	Event   string
+	Version string
+	Data    json.RawMessage
+}
+
+type BuildInfo struct {
+	Pipeline, Job, Build string
+	EventId              string
+}
 
 type StatusEvent struct {
 	Time      int64

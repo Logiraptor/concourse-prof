@@ -1,4 +1,4 @@
-package main
+package events
 
 type InitializeGetEvent struct {
 	Time      int64

@@ -1,74 +1,123 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
+	"syscall/js"
+	"time"
 
-	"github.com/jinzhu/gorm"
-	_ "github.com/lib/pq"
-	"github.com/vbauerster/mpb/v4"
+	"github.com/Logiraptor/concourse-prof/processor"
 )
 
-type BaseEvent struct {
-	Event   string
-	Version string
-	Data    json.RawMessage
-}
-
-type BuildInfo struct {
-	Pipeline, Job, Build string
-	EventId              string
-}
-
 func main() {
-	db, err := gorm.Open("postgres", "host=localhost sslmode=disable")
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-	defer db.Close()
 
-	db.AutoMigrate(&LogEvent{}, &StatusEvent{}, &ErrorEvent{})
-	db.AutoMigrate(&InitializeTaskEvent{}, &StartTaskEvent{}, &FinishTaskEvent{})
-	db.AutoMigrate(&InitializeGetEvent{}, &StartGetEvent{}, &FinishGetEvent{})
-	db.AutoMigrate(&InitializePutEvent{}, &StartPutEvent{}, &FinishPutEvent{})
-	if db.Error != nil {
-		log.Fatal(err)
-		return
+	var jsDate = js.Global().Get("Date")
+	var makeDate = func(x time.Time) js.Value {
+		return jsDate.New(
+			js.ValueOf(x.Year()),
+			js.ValueOf(int(x.Month()-1)),
+			js.ValueOf(x.Day()),
+			js.ValueOf(x.Hour()),
+			js.ValueOf(x.Minute()),
+			js.ValueOf(x.Second()),
+		)
 	}
 
-	wg := &sync.WaitGroup{}
-	progress := mpb.New(mpb.WithWaitGroup(wg))
+	js.Global().Set("NewProcessor", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		concourseUrl := args[0]
+		localUrl := args[1]
+		token := args[2]
 
-	p := processor{
-		db:       db,
-		jobQueue: make(chan func() error),
-		progress: progress,
-	}
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go worker(wg, p.jobQueue)
-	}
-	pipelines, err := p.fly("pipelines")
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-	for _, pipeline := range pipelines {
-		p.processPipeline(pipeline)
-	}
-	close(p.jobQueue)
-	progress.Wait()
-}
-
-func worker(wg *sync.WaitGroup, jobs chan func() error) {
-	for job := range jobs {
-		err := job()
+		client, err := NewApiClient(concourseUrl.String(), localUrl.String(), token.String())
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
+			return js.Null()
 		}
-	}
-	wg.Done()
+
+		return map[string]interface{}{
+			"listPipelines": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				cb := args[0]
+				go func() {
+					pipelines, err := client.ListPipelines()
+					if err != nil {
+						fmt.Println(err)
+						return
+					}
+					output := []interface{}{}
+					for _, pipeline := range pipelines {
+						output = append(output, pipeline)
+					}
+					cb.Invoke(output)
+				}()
+				return js.Null()
+			}),
+			"listJobs": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				pipeline := args[0]
+				cb := args[1]
+				go func() {
+					jobs, err := client.ListJobs(pipeline.String())
+					if err != nil {
+						fmt.Println(err)
+						return
+					}
+					output := []interface{}{}
+					for _, job := range jobs {
+						output = append(output, job)
+					}
+					cb.Invoke(output)
+				}()
+				return js.Null()
+			}),
+			"listBuilds": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				pipeline := args[0]
+				job := args[1]
+				cb := args[2]
+				go func() {
+					builds, err := client.ListBuilds(pipeline.String(), job.String())
+					if err != nil {
+						fmt.Println(err)
+						return
+					}
+					output := []interface{}{}
+					for _, build := range builds {
+						output = append(output, build)
+					}
+					cb.Invoke(output)
+				}()
+				return js.Null()
+			}),
+			"plotBuild": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				pipeline := args[0]
+				job := args[1]
+				build := args[2]
+				cb := args[3]
+				go func() {
+					wg := &sync.WaitGroup{}
+					sink := &plotterEventSink{}
+					ui := consoleUi{}
+					p := processor.NewProcessor(client, ui, sink, wg)
+					p.ProcessBuild(pipeline.String(), job.String(), build.String())
+					p.Close()
+					wg.Wait()
+					output := []interface{}{}
+					for origin, interval := range sink.Intervals {
+						fmt.Println(origin)
+						fmt.Println(interval.Init, interval.Start, interval.Finish)
+						output = append(output, map[string]interface{}{
+							"origin": origin,
+							"init":   makeDate(interval.Init),
+							"start":  makeDate(interval.Start),
+							"finish": makeDate(interval.Finish),
+							"today":  makeDate(time.Now()),
+						})
+					}
+					cb.Invoke(output)
+				}()
+				return js.Null()
+			}),
+		}
+	}))
+
+	select {}
 }

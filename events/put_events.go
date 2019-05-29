@@ -1,4 +1,4 @@
-package main
+package events
 
 type InitializePutEvent struct {
 	Time      int64
