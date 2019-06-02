@@ -1,4 +1,3 @@
-/*global NewProcessor:true*/
 import React, {useState, useEffect} from 'react';
 import { HashRouter as Router, Route, Link } from "react-router-dom";
 import './App.css';
@@ -14,6 +13,8 @@ import Highcharts from 'highcharts';
 import HC_xrange from 'highcharts/modules/xrange';
 import HC_exporting from 'highcharts/modules/exporting';
 import HighchartsReact from 'highcharts-react-official';
+import {ApiClient} from './core/api_client';
+import {Plotter} from './core/plotter';
 
 HC_xrange(Highcharts);
 HC_exporting(Highcharts);
@@ -38,7 +39,8 @@ const App = () => {
     var [tempToken, setTempToken] = useState(token);
     var [tempUrl, setTempUrl] = useState(url);
 
-    var processor = NewProcessor(url, process.env.PUBLIC_URL, token);
+    var apiClient = new ApiClient(url, process.env.PUBLIC_URL, token);
+    var plotter = new Plotter(apiClient);
 
     return (
             <Siteframe
@@ -66,29 +68,30 @@ const App = () => {
                 </Panel>
 
                 <Router>
-                    <Route exact path="/" render={() => <PipelineList processor={processor}/>}/>
-                    <Route exact path="/pipeline/:pipeline" render={({match}) => <JobList processor={processor} pipeline={match.params.pipeline}/>}/>
-                    <Route exact path="/pipeline/:pipeline/job/:job" render={({match}) => <BuildList processor={processor} pipeline={match.params.pipeline} job={match.params.job}/>}/>
-            <Route exact path="/pipeline/:pipeline/job/:job/build/:build" render={({match}) => <BuildPlot processor={processor} pipeline={match.params.pipeline} job={match.params.job} build={match.params.build}/>}/>
+                    <Route exact path="/" render={() => <PipelineList apiClient={apiClient}/>}/>
+                    <Route exact path="/pipeline/:pipeline" render={({match}) => <JobList apiClient={apiClient} pipeline={match.params.pipeline}/>}/>
+                    <Route exact path="/pipeline/:pipeline/job/:job" render={({match}) => <BuildList apiClient={apiClient} pipeline={match.params.pipeline} job={match.params.job}/>}/>
+            <Route exact path="/pipeline/:pipeline/job/:job/build/:build" render={({match}) => <BuildPlot plotter={plotter} apiClient={apiClient} pipeline={match.params.pipeline} job={match.params.job} build={match.params.build}/>}/>
                 </Router>
             </div>
             </Siteframe>
     );
 }
 
-const PipelineList = ({processor}) => {
+const PipelineList = ({apiClient}) => {
     var [pipelines, setPipelines] = useState([]);
     var [loading, setLoading] = useState(false);
 
+    async function fetchPipelines() {
+        setLoading(true);
+        var pipelines = await apiClient.listPipelines();
+        setPipelines(pipelines);
+        setLoading(false);
+    }
+
     useEffect(() => {
-        if (processor != null) {
-            setLoading(true);
-            processor.listPipelines(pipelines => {
-                setPipelines(pipelines);
-                setLoading(false);
-            });
-        }
-    }, [processor]);
+        fetchPipelines();
+    }, [apiClient]);
 
     var pipelineData = pipelines.map(name => ({name, link: <Link to={`/pipeline/${name}`}>{name}</Link>}));
 
@@ -99,19 +102,20 @@ const PipelineList = ({processor}) => {
     );
 }
 
-const JobList = ({processor, pipeline}) => {
+const JobList = ({apiClient, pipeline}) => {
     var [jobs, setJobs] = useState([]);
     var [loading, setLoading] = useState(false);
 
+    async function fetchJobs() {
+        setLoading(true);
+        var jobs = await apiClient.listJobs(pipeline);
+        setJobs(jobs);
+        setLoading(false);
+    }
+
     useEffect(() => {
-        if (processor != null) {
-            setLoading(true);
-            processor.listJobs(pipeline, jobs => {
-                setJobs(jobs);
-                setLoading(false);
-            });
-        }
-    }, [processor, pipeline]);
+        fetchJobs();
+    }, [apiClient, pipeline]);
 
     var jobData = jobs.map(name => ({name, link: <Link to={`/pipeline/${pipeline}/job/${name}`}>{name}</Link>}));
 
@@ -122,19 +126,20 @@ const JobList = ({processor, pipeline}) => {
     );
 }
 
-const BuildList = ({processor, pipeline, job}) => {
+const BuildList = ({apiClient, pipeline, job}) => {
     var [builds, setBuilds] = useState([]);
     var [loading, setLoading] = useState(false);
 
+    async function fetchBuilds() {
+        setLoading(true);
+        var builds = await apiClient.listBuilds(pipeline, job);
+        setBuilds(builds);
+        setLoading(false);
+    }
+
     useEffect(() => {
-        if (processor != null) {
-            setLoading(true);
-            processor.listBuilds(pipeline, job, builds => {
-                setBuilds(builds);
-                setLoading(false);
-            });
-        }
-    }, [processor, pipeline, job]);
+        fetchBuilds();
+    }, [apiClient, pipeline, job]);
 
     var buildData = builds.map(name => ({name, link: <Link to={`/pipeline/${pipeline}/job/${job}/build/${name}`}>{name}</Link>}));
 
@@ -167,7 +172,6 @@ const makeOptions = (plot) => {
         });
     });
 
-    console.log(categories, data);
     return {
         chart: {
             type: 'xrange'
@@ -196,23 +200,18 @@ const makeOptions = (plot) => {
                 enabled: true
             }
         }]
-    }
-}
+    };
+};
 
-const BuildPlot = ({processor, pipeline, job, build}) => {
+const BuildPlot = ({plotter, apiClient, pipeline, job, build}) => {
     var [plot, setPlot] = useState([]);
     var [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (processor != null) {
-            setLoading(true);
-            processor.plotBuild(pipeline, job, build, plot => {
-                console.log(plot);
-                setPlot(plot);
-                setLoading(false);
-            });
-        }
-    }, [processor, pipeline, job, build]);
+        plotter.plotBuild(pipeline, job, build).subscribe(plot => {
+            setPlot(plot);
+        });
+    }, [pipeline, job, build]);
 
     return (
         <Panel loading={loading} className="paxl" header="Plot">

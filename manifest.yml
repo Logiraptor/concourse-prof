@@ -1,0 +1,8 @@
+---
+applications:
+  - name: concourse-prof
+    buildpack: go_buildpack
+    path: package.zip
+    env:
+      GOPACKAGENAME: github.com/Logiraptor/concourse-prof
+      GOVERSION: 1.12
