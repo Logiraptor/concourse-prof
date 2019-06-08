@@ -1,4 +1,4 @@
-import { ApiClient } from './api_client';
+import { ApiClient } from './ApiClient';
 import { Observable, from } from 'rxjs';
 import { reduce, map, concatMap } from 'rxjs/operators';
 
