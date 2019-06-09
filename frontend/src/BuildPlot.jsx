@@ -3,6 +3,18 @@ import {Panel} from 'pivotal-ui/react/panels';
 import Highcharts from 'highcharts';
 import HighchartsReact from 'highcharts-react-official';
 
+export const toHHMMSS = (millis) => {
+    var total_seconds = millis / 1000;
+    var hours         = Math.floor(total_seconds / 3600);
+    var minutes       = Math.floor((total_seconds - (hours * 3600)) / 60);
+    var seconds       = total_seconds - (hours * 3600) - (minutes * 60);
+
+    if (hours   < 10) {hours   = "0"+hours;}
+    if (minutes < 10) {minutes = "0"+minutes;}
+    if (seconds < 10) {seconds = "0"+seconds;}
+    return hours + ':' + minutes + ':' + seconds;
+}
+
 const makeOptions = (plot) => {
     plot = plot.sort((x, y) => x.start.getTime() - y.start.getTime());
     var categories = plot.map(x => x.origin);
@@ -16,12 +28,14 @@ const makeOptions = (plot) => {
             x2: start,
             partialFill: 1,
             y: i,
+            xx_duration: start - init,
         });
         data.push({
             x: start,
             x2: finish,
             partialFill: 1,
             y: i,
+            xx_duration: finish - start,
         });
     });
 
@@ -48,6 +62,9 @@ const makeOptions = (plot) => {
             pointWidth: 20,
             data: data,
             dataLabels: {
+                formatter: function() {
+                    return toHHMMSS(this.point.xx_duration)
+                },
                 enabled: true
             }
         }]
