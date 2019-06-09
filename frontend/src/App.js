@@ -3,6 +3,7 @@ import { HashRouter as Router, Route } from "react-router-dom";
 import './App.css';
 import {Siteframe} from 'pivotal-ui/react/siteframe';
 import {Input} from 'pivotal-ui/react/inputs';
+import {FormUnit} from 'pivotal-ui/react/forms';
 import {PrimaryButton} from 'pivotal-ui/react/buttons';
 import {Panel} from 'pivotal-ui/react/panels';
 import {Grid, FlexCol} from 'pivotal-ui/react/flex-grids';
@@ -13,7 +14,7 @@ import {Plotter} from './core/plotter';
 import {PipelineList} from './PipelineList';
 import {JobList} from './JobList';
 import {BuildList} from './BuildList';
-import {BuildPlot} from './BuildPlot';
+import {BuildPlot, toHHMMSS} from './BuildPlot';
 
 const useStateWithLocalStorage = (localStorageKey, defaultVal) => {
     const [value, setValue] = useState(
@@ -51,14 +52,25 @@ const App = () => {
                         headerCols={[<FlexCol fixed><PrimaryButton small onClick={() => {setUrl(tempUrl); setToken(tempToken)}}> Refresh </PrimaryButton></FlexCol>]} >
                     <Grid>
                         <FlexCol>
-                            <label>
-                                Url <Input value={tempUrl} onChange={event => setTempUrl(event.target.value)}/>
-                            </label>
+                            <FormUnit
+                                label="Url"
+                                labelFor="url-input"
+                                help="URL of the concourse atc (like https://ci.concourse-ci.org)"
+                                hasError={false}
+                            >
+                                <Input id="url-input" type="text" value={tempUrl} onChange={event => setTempUrl(event.target.value)}/>
+                            </FormUnit>
                         </FlexCol>
                         <FlexCol>
-                            <label>
-                                Token <Input value={tempToken} onChange={event => setTempToken(event.target.value)}/>
-                            </label>
+                            <FormUnit
+                                label="Token"
+                                labelFor="token-input"
+                                postLabel={<a rel="noopener noreferrer" href={`${url}/login?fly_port=concourse-prof`} target="_blank">Get a Token</a>}
+                                help="A valid auth token"
+                                hasError={false}
+                            >
+                                <Input id="token-input" type="text" value={tempToken} onChange={event => setTempToken(event.target.value)}/>
+                            </FormUnit>
                         </FlexCol>
                     </Grid>
                 </Panel>
