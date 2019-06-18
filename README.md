@@ -1,6 +1,12 @@
 # Concourse-prof
 
-A little tool to help you analyze your concourse logs. It takes the most recent successful run from each job in your concourse and sends all the logs to postgres. From there you can do lots of interesting things like find the slow spots.
+A little tool to help you analyze your concourse logs. To use:
+
+```
+docker run patrickoyarzun/concourse-prof
+```
+
+then open `localhost:8080`.
 
 ## Status
 
