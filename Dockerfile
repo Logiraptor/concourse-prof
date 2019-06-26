@@ -12,6 +12,7 @@ RUN yarn install
 RUN yarn build
 
 FROM alpine
+RUN apk update && apk add ca-certificates && rm -rf /var/cache/apk/*
 WORKDIR /root/
 RUN mkdir -p frontend/build
 COPY --from=client /root/build /root/frontend/build
