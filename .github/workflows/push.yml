@@ -7,15 +7,10 @@ jobs:
     steps:
     - uses: actions/checkout@master
     - name: Docker Login
-      uses: actions/docker/login@8cdf801b322af5f369e00d85e9cf3a7122f49108
+      uses: azure/docker-login@v1
       env:
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-    - name: Build
-      uses: actions/docker/cli@8cdf801b322af5f369e00d85e9cf3a7122f49108
-      with:
-        args: build -t patrickoyarzun/concourse-prof .
-    - name: Push
-      uses: actions/docker/cli@8cdf801b322af5f369e00d85e9cf3a7122f49108
-      with:
-        args: push patrickoyarzun/concourse-prof
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+    - run: |
+           docker build . -t patrickoyarzun/concourse-prof:${{ github.sha }}
+           docker push patrickoyarzun/concourse-prof:${{ github.sha }}
